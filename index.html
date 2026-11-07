@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Survive Bob</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="preload" href="assets/fonts/bungee-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/rubik-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  /* Fonts are hosted with the game (SIL Open Font License, see assets/fonts), so the page asks no other site for anything. */
+  @font-face { font-family: 'Bungee'; font-style: normal; font-weight: 400; font-display: swap; src: url('assets/fonts/bungee-latin.woff2') format('woff2'); }
+  @font-face { font-family: 'Rubik'; font-style: normal; font-weight: 300 900; font-display: swap; src: url('assets/fonts/rubik-latin.woff2') format('woff2'); }
+  :root {
+    --bg: #14110f;
+    --btn: rgba(0, 0, 0, 0.38);
+    --btn-line: rgba(255, 255, 255, 0.75);
+    --btn-on: rgba(255, 212, 59, 0.88);
+    --ink: #ffffff;
+    --ink-on: #212529;
+    --hint: #d0d0d0;
+  }
+  /* The game is always dark, in light and dark mode alike. */
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #14110f; } }
+  :root[data-theme="dark"] { --bg: #14110f; }
+
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; overscroll-behavior: none; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas {
+    display: block;
+    width: min(calc(100vw - 32px), calc(100vh * 16 / 9));
+    width: min(calc(100vw - 32px), calc(100dvh * 16 / 9));
+    height: auto;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* ---- Touch buttons (phones and tablets) ---- */
+  #touch { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #touch[hidden] { display: none; }
+  .tb {
+    pointer-events: auto; position: absolute;
+    width: 68px; height: 68px; border-radius: 50%; padding: 0;
+    border: 3px solid var(--btn-line); background: var(--btn); color: var(--ink);
+    font: 800 15px 'Rubik', system-ui, sans-serif; line-height: 1.05;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .tb small { font-size: 9px; opacity: 0.9; }
+  .tb.big { width: 82px; height: 82px; font-size: 16px; }
+  .tb.sm { width: 54px; height: 54px; font-size: 13px; }
+  .tb.xs { width: 44px; height: 44px; font-size: 14px; }
+  .tb.on { background: var(--btn-on); color: var(--ink-on); }
+  #bLeft  { left: calc(16px + env(safe-area-inset-left)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #bRight { left: calc(96px + env(safe-area-inset-left)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #bDown  { left: calc(63px + env(safe-area-inset-left)); bottom: calc(96px + env(safe-area-inset-bottom)); }
+  #bJump  { right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #bFire  { right: calc(110px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #bNade  { right: calc(30px + env(safe-area-inset-right)); bottom: calc(110px + env(safe-area-inset-bottom)); }
+  #bGun   { right: calc(124px + env(safe-area-inset-right)); bottom: calc(110px + env(safe-area-inset-bottom)); }
+  #bPause { left: 50%; transform: translateX(-50%); top: calc(12px + env(safe-area-inset-top)); }
+
+  /* Phones held upright: suggest turning sideways. */
+  #rotate {
+    display: none; position: fixed; left: 16px; right: 16px; z-index: 4;
+    bottom: calc(190px + env(safe-area-inset-bottom));
+    text-align: center; color: var(--hint); font: 800 14px 'Rubik', system-ui, sans-serif;
+  }
+  @media (orientation: portrait) and (pointer: coarse) { #rotate { display: block; } }
+</style>
+</head>
+<body>
+<canvas id="game" width="960" height="540"></canvas>
+
+<div id="touch" hidden>
+  <button class="tb" id="bLeft" data-key="ArrowLeft" aria-label="Move left">◀</button>
+  <button class="tb" id="bRight" data-key="ArrowRight" aria-label="Move right">▶</button>
+  <button class="tb sm" id="bDown" data-key="ArrowDown" aria-label="Drop down">▼</button>
+  <button class="tb big" id="bFire" data-key="KeyJ">FIRE</button>
+  <button class="tb big" id="bJump" data-key="Space">JUMP</button>
+  <button class="tb sm" id="bGun" data-key="KeyQ">GUN</button>
+  <button class="tb sm" id="bNade" data-key="KeyK" aria-label="Throw grenade">💣</button>
+  <button class="tb xs" id="bPause" data-key="KeyP" aria-label="Pause">II</button>
+</div>
+<div id="rotate">Turn your phone sideways for a bigger screen</div>
+
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/music.js"></script>
+<script src="js/props.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/art-more.js"></script>
+<script src="js/levels-more.js"></script>
+<script src="js/levels-extra.js"></script>
+<script src="js/heroes.js"></script>
+<script src="js/player.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/enemies-more.js"></script>
+<script src="js/world1.js"></script>
+<script src="js/world2.js"></script>
+<script src="js/bob.js"></script>
+<script src="js/dc.js"></script>
+<script src="js/waves.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
