@@ -51,4 +51,6 @@ Then open http://localhost:8765.
 - Bob's look started from a concept picture made with Google Gemini.
 - Written with help from Claude (Anthropic).
 
-**Copyright.** © 2026 Mark A. Nakasone. All rights reserved. You're welcome to play it and read the code, but please ask before reusing it. The fonts keep their own open licence. Provided as is, with no warranty.
+**Copyright.** © 2026 Mark A. Nakasone. All rights reserved. You're welcome to play it and read the code, but please ask before reusing it. The fonts keep their own open licence (see `assets/fonts/`).
+
+This game is provided "as is", without warranty of any kind. In no event shall the author be liable for any claim, damages or other liability arising from its use.
