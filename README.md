@@ -1,8 +1,12 @@
 # Survive Bob
 
-A run-and-gun browser game. Pick a hero and chase Bob, a fat, sloppy villain who makes weird noises, across 20 levels: 10 across America, then the world (Tokyo, Giza, Petra, the Amazon, the Outback, Antarctica, Everest, the Colosseum, Area 51), ending in Washington, D.C. There's also an endless Waves mode.
+## [▶ Play Survive Bob now](https://marknakasone85.github.io/survive-bob/)
 
-**▶ Play it: https://marknakasone85.github.io/survive-bob/** (works on computers, phones and tablets)
+Free in your browser, on computers, phones and tablets. Nothing to install.
+
+[![Survive Bob in Tokyo: Rusty fires at Bob while he burps. Click to play.](assets/screenshot.png)](https://marknakasone85.github.io/survive-bob/)
+
+A run-and-gun browser game. Pick a hero and chase Bob, a fat, sloppy villain who makes weird noises, across 20 levels: 10 across America, then the world (Tokyo, Giza, Petra, the Amazon, the Outback, Antarctica, Everest, the Colosseum, Area 51), ending in Washington, D.C. There's also an endless Waves mode.
 
 Plain HTML5 canvas and JavaScript. No build step, no libraries.
 
