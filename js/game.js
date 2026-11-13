@@ -223,8 +223,8 @@ function startLevel(i, waves = false) {
   L.arenaX = L.length - W;
   G.solids = [{ x: -600, y: GROUND_Y, w: L.length + 1200, h: 200, oneWay: false, style: 'ground' }];
   for (const [x, y, w, style] of L.platforms) G.solids.push({ x, y, w, h: 14, oneWay: true, style });
-  for (const [x, w, h, style] of L.blocks) G.solids.push({ x, y: GROUND_Y - h, w, h, oneWay: false, style });
-  G.bullets = []; G.ebullets = []; G.grenades = []; G.enemies = []; G.particles = [];
+  for (const [x, w, h, style] of L.blocks) G.solids.push(makeCover(x, w, h, style)); // crates, barrels... (props.js)
+  G.bullets = []; G.ebullets = []; G.grenades = []; G.enemies = []; G.particles = []; G.rubble = [];
   G.texts = []; G.explosions = []; G.puddles = [];
   G.pickups = L.pickups.map(([x, type]) => ({ x, y: 60, w: 34, h: 30, vx: 0, vy: 0, type, bob: Math.random() * 6 }));
   for (const [x, w] of L.mud || []) G.puddles.push({ x, w, life: Infinity, mud: true }); // mud pits slow you down
@@ -386,7 +386,7 @@ function updatePlay() {
   }
   updateEnemies();
   if (G.boss) G.boss.update();
-  updateBullets(); updateEnemyBullets(); updateGrenades(); updatePickups(); updateFx();
+  updateBullets(); updateCover(); updateEnemyBullets(); updateGrenades(); updatePickups(); updateFx();
   const target = G.arenaLocked ? L.arenaX : clamp(p.x - W * 0.4, 0, L.length - W);
   G.camX += (target - G.camX) * 0.1;
   if (G.mode !== 'waves' && G.boss && G.boss.done && ++G.bossDoneT > 90) {
@@ -437,6 +437,7 @@ function drawWorld() {
     if (d.mud) ellipse(ctx, d.x + d.w / 2 + Math.sin(G.t * 0.05 + d.x) * 10, GROUND_Y + 1, 8, 2, 'rgba(255,255,255,0.15)');
   }
   for (const pr of L.props) if (pr[1] > x0 - 300 && pr[1] < x1 + 100) Props[pr[0]](ctx, pr[1], pr[2]);
+  for (const r of G.rubble) if (r.x < x1 && r.x + r.w > x0) drawRubble(ctx, r);
   for (const s of G.solids) if (s.style !== 'ground' && s.x < x1 && s.x + s.w > x0) drawSolid(ctx, s);
   if (G.arenaLocked) {
     for (let y = 0; y < GROUND_Y; y += 24) rect(ctx, L.arenaX, y, 8, 12, '#ffd43b');

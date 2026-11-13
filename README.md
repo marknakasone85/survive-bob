@@ -35,6 +35,8 @@ Then open http://localhost:8765.
 
 Shooting auto-aims at the closest enemy in front of you unless you aim yourself. A controller works in the menus too (A picks, B goes back), and the help on screen switches to controller buttons. Button names are Xbox-style; on PlayStation, A is ✕, B is ◯, X is ▢ and Y is △.
 
+Crates, barrels, cars and rocks are cover. They stop shots, so enemies can hide behind them, but every hit chips them until they break into rubble. After that, shots go straight through and enemies can walk past. Grenades and rockets wreck cover fast, and the .308 battle rifle punches right through it.
+
 ## Code map
 
 - `index.html`: the page, the canvas, the touch buttons and the full-screen button, plus the link-preview tags
@@ -42,6 +44,7 @@ Shooting auto-aims at the closest enemy in front of you unless you aim yourself.
 - `manifest.webmanifest`, `assets/icons/`: name and icons for Add to Home Screen
 - `js/game.js`: game states, menus, the level picker, the HUD, controllers, full screen and the main loop
 - `js/levels*.js`, `js/world1.js`, `js/world2.js`, `js/dc.js`: levels, backgrounds and the enemies for each world
+- `js/props.js`: scenery, pickups, and cover that can be shot to bits
 - `js/bob.js`: Bob the boss and his death scene
 - `js/enemies*.js`, `js/player.js`, `js/heroes.js`, `js/waves.js`: enemies, heroes, guns and Waves mode
 - `js/audio.js`, `js/music.js`: sound effects and the music, all made in code

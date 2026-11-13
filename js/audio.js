@@ -146,7 +146,7 @@ const SFX = (() => {
     banjo:      () => { tone('triangle', 600, 200, 0.4, 0.08); gross(150, 90, 0.3, 15, 12, 0.2); },
   };
 
-  let lastMg = 0, lastFlame = 0, lastStep = 0, lastLmg = 0;
+  let lastMg = 0, lastFlame = 0, lastStep = 0, lastLmg = 0, lastThunk = 0;
   const limit = (last, ms) => performance.now() - last >= ms;
   return {
     unlock() { unlocked = true; return ctx(); },
@@ -157,6 +157,13 @@ const SFX = (() => {
     raw: { tone, noise, gross },
     addKill(map) { Object.assign(KILL, map); },
     clink() { tone('square', 1800, 1500, 0.05, 0.05); tone('sine', 3200, 2900, 0.12, 0.04, 0.01); }, // shot bounces off a shield
+    // Cover getting shot up (props.js): a thunk per hit, a crunch when a chunk flies off, a smash when it breaks.
+    thunk() { if (!limit(lastThunk, 50)) return; lastThunk = performance.now(); noise(0.06, 0.16, 1100, 0, 'bandpass'); tone('square', 240, 120, 0.04, 0.035); },
+    crunch() { noise(0.18, 0.32, 900, 0, 'lowpass', 0.2); tone('square', 170, 60, 0.1, 0.07); noise(0.1, 0.12, 3000, 0.04, 'bandpass'); },
+    smash() {
+      noise(0.5, 0.5, 700, 0, 'lowpass', 0.5); tone('sine', 110, 35, 0.35, 0.35); noise(0.25, 0.25, 2600, 0.02, 'bandpass', 0.3);
+      for (let i = 0; i < 4; i++) tone('triangle', 500 + Math.random() * 700, 300, 0.05, 0.035, 0.12 + i * 0.07); // bits clattering down
+    },
 
     // ---- Guns ----
     casing(d = 0.22) { const f = 3000 + Math.random() * 1500; tone('sine', f, f * 0.9, 0.05, 0.035, d); tone('sine', f * 1.1, f, 0.05, 0.022, d + 0.09); },

@@ -28,7 +28,7 @@ const G = {
   levelIndex: 0, level: null, heroIndex: 0,
   camX: 0, shake: 0, score: 0, startTime: 0,
   player: null, boss: null, arenaLocked: false,
-  solids: [], bullets: [], ebullets: [], grenades: [], enemies: [],
+  solids: [], rubble: [], bullets: [], ebullets: [], grenades: [], enemies: [],
   particles: [], texts: [], explosions: [], pickups: [], puddles: [],
   banner: null,
 };

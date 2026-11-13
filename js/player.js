@@ -184,13 +184,6 @@ function throwGrenade(p) {
   SFX.throwIt();
 }
 
-// Splinter colors when a shot passes through cover.
-const SPLINTERS = {
-  hay: ['#d9b44a', '#b8922c'], crate: ['#a87a45', '#6e4a22'], barrel: ['#8b4a2b', '#555'], stump: ['#6b4f3a', '#a68a64'],
-  cactus: ['#2f9e44', '#237a35'], trashbags: ['#1f1f1f', '#444'], dumpster: ['#2b8a3e', '#ccc'], oldcar: ['#a0522d', '#ccc'],
-  tirestack: ['#222', '#555'], toaster: ['#c9d1d6', '#fff'], cereal: ['#e63946', '#ffd166'], jar: ['#b47828', '#fff'],
-};
-
 function updateBullets() {
   for (const b of G.bullets) {
     const flame = b.type === 'flame', rocket = b.type === 'rocket', lob = b.type === 'lob';
@@ -218,16 +211,20 @@ function updateBullets() {
       b.x += b.vx / 2; b.y += b.vy / 2;
       for (const s of G.solids) {
         if (s.oneWay || !(b.x > s.x && b.x < s.x + s.w && b.y > s.y && b.y < s.y + s.h)) continue;
-        if (s.style === 'ground') {
+        if (!s.cover) { // the ground
           b.life = 0;
           if (!flame && !rocket && !lob) particles(b.x, b.y, 4, '#ffe8a3', { speed: 2 });
           break;
         }
-        // Crates, barrels, cars... aren't bulletproof: shots go straight through, with splinters.
-        if (!b.hit.has(s)) {
-          b.hit.add(s);
-          if (!flame) particles(b.x, b.y, 6, SPLINTERS[s.style] || ['#adb5bd', '#868e96'], { speed: 3 });
-        }
+        if (b.hit.has(s) || s.broken) continue;
+        // Cover (crates, barrels, cars...) stops the shot and takes the damage (see props.js).
+        b.hit.add(s);
+        if (flame) { hitCover(s, b.dmg, b.x, b.y, 'flame'); b.life = 0; break; }
+        hitCover(s, b.dmg, b.x, b.y, rocket || lob ? 'blast' : 'shot');
+        if (rocket || lob) { b.life = 0; break; } // blows up against it
+        particles(b.x, b.y, 6, coverBits(s), { speed: 3 }); SFX.thunk();
+        b.pierce -= 2; // only the .308 has enough punch left to go on through
+        if (b.pierce <= 0) { b.life = 0; break; }
       }
       if (b.life <= 0) break;
       const r = flame ? 6 + (1 - b.life / b.max) * 14 : rocket ? 8 : lob ? 7 : 5;
@@ -286,6 +283,8 @@ function explode(x, y, r, dmg) {
   G.flash = Math.max(G.flash || 0, 0.3);
   for (const e of G.enemies) if (e.hp > 0 && circleHitsRect(x, y, r, e)) damageEnemy(e, dmg);
   if (G.boss && circleHitsRect(x, y, r, G.boss.hitbox())) G.boss.hurt(Math.round(dmg * 0.8));
+  // Explosions tear cover apart: one grenade wrecks a crate, two take out a car.
+  for (const s of G.solids) if (s.cover && !s.broken && circleHitsRect(x, y, r, s)) hitCover(s, dmg * 2.5, x, y, 'blast');
 }
 
 function hurtPlayer(dmg, fromX) {

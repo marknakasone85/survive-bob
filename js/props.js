@@ -111,6 +111,7 @@ const Props = {
 // Extra styles can be registered in SolidArt (see art-more.js).
 const SolidArt = {};
 function drawSolid(ctx, s) {
+  if (s.cover && (s.hp < s.maxHp || G.t - s.hitAt < 8)) { drawDamagedCover(ctx, s); return; }
   const { x, y, w, h } = s;
   switch (s.style) {
     case 'plank':
@@ -194,6 +195,127 @@ function drawSolid(ctx, s) {
       break;
     default:
       if (SolidArt[s.style]) SolidArt[s.style](ctx, s);
+  }
+}
+
+// ---- Cover: the crates, barrels, cars and rocks sitting on the ground ----
+// Cover stops your shots, but every hit chips it. First come bullet holes. Then the top gets blown off a chunk
+// at a time, so less and less of an enemy is hidden. At zero it bursts into rubble: shots fly straight through
+// and enemies can walk past. Explosions wreck cover fast, and the .308 punches through it.
+const COVER_HP = {
+  jar: 18, trashbags: 18, hay: 21, cereal: 24, boxes: 24, cactus: 24,
+  crate: 30, tk_crate: 30, hi_crate: 30, tk_cooler: 32, a51_crate: 34, stump: 34, am_stump: 34,
+  barrel: 36, oz_drum: 36, an_drum: 36, an_iceblock: 36, tirestack: 40, a51_tank: 44, toaster: 48,
+  eg_stone: 48, eg_pillar: 48, pt_boulder: 48, pt_block: 48, am_rock: 48, hi_boulder: 48, ro_stone: 48,
+  dc_barrier: 52, oldcar: 56, dumpster: 56,
+};
+// Flames eat wood, paper and rubber fast and barely scorch stone, metal or ice.
+const FLAMMABLE = new Set(['hay', 'trashbags', 'cereal', 'boxes', 'crate', 'tk_crate', 'hi_crate', 'a51_crate', 'stump', 'am_stump', 'tirestack']);
+// How much of the height is left at each damage stage. Your shots fly 31px above the ground, so low cover
+// (hay, 40px) stops them until its last stage, and tall cover until it breaks.
+const COVER_STAGES = [1, 0.88, 0.75];
+// Chips and splinters that fly off each kind of cover.
+const COVER_BITS = {
+  hay: ['#d9b44a', '#b8922c'], crate: ['#a87a45', '#6e4a22'], barrel: ['#8b4a2b', '#555'], stump: ['#6b4f3a', '#a68a64'],
+  cactus: ['#2f9e44', '#237a35'], trashbags: ['#1f1f1f', '#444'], dumpster: ['#2b8a3e', '#237032', '#ccc'],
+  oldcar: ['#a0522d', '#9fd3e6', '#ccc'], tirestack: ['#222', '#555'], toaster: ['#c9d1d6', '#fff'], cereal: ['#e63946', '#ffd166'],
+  jar: ['#b47828', '#fff', '#c0392b'], boxes: ['#c9a46b', '#b8925a', '#8a6a3a'], tk_crate: ['#c9a46b', '#d9b67b', '#e63946'],
+  tk_cooler: ['#1c7ed6', '#d0ebff', '#69db7c'], eg_stone: ['#d9b26a', '#b8863f'], eg_pillar: ['#e0b46a', '#c4924a'],
+  pt_boulder: ['#a85240', '#c96f57'], pt_block: ['#d97a5f', '#c4614b'], am_stump: ['#6b4423', '#c9a46b'], am_rock: ['#6c757d', '#2f9e44'],
+  oz_drum: ['#c92a2a', '#1c7ed6', '#2b8a3e'], an_iceblock: ['#a5d8ff', '#e7f5ff'], an_drum: ['#e8590c', '#c2410c'],
+  hi_boulder: ['#6c757d', '#f8f9fa'], hi_crate: ['#4263eb', '#c9a46b'], ro_stone: ['#d9b38c', '#b08968'],
+  a51_crate: ['#5c6b3a', '#3f4a27'], a51_tank: ['#868e96', '#2b8a3e', '#d8f5a2'], dc_barrier: ['#ced4da', '#fd7e14'],
+};
+const coverBits = s => COVER_BITS[s.style] || ['#adb5bd', '#868e96'];
+
+function makeCover(x, w, h, style) {
+  const hp = COVER_HP[style] || clamp(Math.round(w * h / 70), 20, 56);
+  return { x, y: GROUND_Y - h, w, h, oneWay: false, style, cover: true, hp, maxHp: hp, h0: h, stage: 0, holes: [], hitAt: -99 };
+}
+
+// Damage cover s. kind is 'shot' (leaves a bullet hole where it hit), 'flame' or 'blast'.
+function hitCover(s, dmg, hx, hy, kind = 'shot') {
+  if (s.hp <= 0) return;
+  if (kind === 'flame') dmg *= FLAMMABLE.has(s.style) ? 1.5 : 0.5;
+  s.hp -= dmg; s.hitAt = G.t;
+  if (kind === 'shot' && s.holes.length < 16) s.holes.push([hx - s.x, hy - (GROUND_Y - s.h0), rand(2, 3.4)]);
+  if (!G.coverHint) { // the first time, tell the player cover can be shot to bits
+    G.coverHint = true; floatText(s.x + s.w / 2, s.y - 16, 'SHOOT IT TO BITS!', '#ffd43b', 14, 90);
+  }
+  if (s.hp <= 0) { breakCover(s); return; }
+  const stage = s.hp > s.maxHp * 2 / 3 ? 0 : s.hp > s.maxHp / 3 ? 1 : 2;
+  if (stage > s.stage) { // a chunk of the top blows off
+    const nh = Math.round(s.h0 * COVER_STAGES[stage]), oldY = s.y;
+    s.stage = stage; s.y = GROUND_Y - nh; s.h = nh;
+    particles(s.x + s.w / 2, (oldY + s.y) / 2, 16, coverBits(s), { speed: 4.5, sizeMul: 1.6, up: 2 });
+    SFX.crunch(); shake(3);
+  }
+}
+
+// Cover at zero: it bursts and leaves a little pile of rubble you can walk and shoot over.
+function breakCover(s) {
+  s.hp = 0; s.broken = true;
+  G.solids = G.solids.filter(o => o !== s);
+  const cx = s.x + s.w / 2, cy = GROUND_Y - s.h / 2, cols = coverBits(s);
+  particles(cx, cy, 34, cols, { speed: 6.5, sizeMul: 2, grav: 0.35, up: 2 });
+  particles(cx, cy, 14, ['#ced4da', '#adb5bd', '#f1f3f5'], { speed: 2.5, grav: -0.03, sizeMul: 2.6 });
+  G.rubble.push({ x: s.x, w: s.w, cols });
+  SFX.smash(); shake(6);
+}
+
+// Smoke curls off badly damaged cover.
+function updateCover() {
+  if (G.t % 9) return;
+  for (const s of G.solids) {
+    if (s.cover && s.stage === 2 && s.x + s.w > G.camX && s.x < G.camX + W) {
+      particles(s.x + rand(6, s.w - 6), s.y + 2, 1, ['#adb5bd', '#ced4da'], { speed: 0.4, grav: -0.04, sizeMul: 1.6, lifeMul: 1.4 });
+    }
+  }
+}
+
+// Draw cover that's been hit: it jolts, shows its bullet holes, and the blown-off top is ragged.
+function drawDamagedCover(ctx, s) {
+  const top0 = GROUND_Y - s.h0, since = G.t - s.hitAt;
+  ctx.save();
+  if (since < 8) ctx.translate((since % 2 ? 1 : -1) * (8 - since) * 0.3, 0);
+  let edge = null;
+  if (s.stage > 0) { // clip off the missing top along a jagged line
+    const n = Math.max(3, Math.round(s.w / 9));
+    edge = [];
+    for (let i = 0; i <= n; i++) edge.push(s.x + (i / n) * s.w, s.y + (i % 2 ? 2 + hash(s.x + i * 7 + s.stage) * 7 : 0));
+    ctx.beginPath();
+    ctx.moveTo(s.x - 12, GROUND_Y + 6); ctx.lineTo(s.x - 12, edge[1]);
+    for (let i = 0; i < edge.length; i += 2) ctx.lineTo(edge[i], edge[i + 1]);
+    ctx.lineTo(s.x + s.w + 12, edge[edge.length - 1]); ctx.lineTo(s.x + s.w + 12, GROUND_Y + 6);
+    ctx.closePath(); ctx.clip();
+  }
+  drawSolid(ctx, { x: s.x, y: top0, w: s.w, h: s.h0, style: s.style });
+  for (const [hx, hy, r] of s.holes) {
+    circle(ctx, s.x + hx + 0.8, top0 + hy + 0.8, r + 1, 'rgba(255,255,255,0.22)');
+    circle(ctx, s.x + hx, top0 + hy, r, 'rgba(25,15,10,0.85)');
+  }
+  if (s.stage === 2) { // scorch and cracks once it's badly hurt
+    ctx.globalAlpha = 0.5;
+    for (let i = 0; i < 3; i++) {
+      const sx = s.x + s.w * (0.2 + 0.3 * i), sy = s.y + 4;
+      line(ctx, sx, sy, sx + (hash(s.x + i) - 0.5) * 14, sy + s.h * 0.45, '#1a1210', 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (edge) {
+    ctx.strokeStyle = 'rgba(20,12,8,0.6)'; ctx.lineWidth = 2.5; ctx.beginPath();
+    for (let i = 0; i < edge.length; i += 2) ctx[i ? 'lineTo' : 'moveTo'](edge[i], edge[i + 1] + 1);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRubble(ctx, r) {
+  ellipse(ctx, r.x + r.w / 2, GROUND_Y + 1, r.w / 2 + 6, 5, 'rgba(0,0,0,0.25)');
+  const n = Math.round(r.w / 6);
+  for (let i = 0; i < n; i++) {
+    const k = hash(r.x + i * 13), sz = 4 + hash(r.x + i * 5) * 7;
+    rect(ctx, r.x + k * (r.w - sz), GROUND_Y - sz * (0.5 + hash(i + r.x) * 0.4), sz, sz * 0.8, r.cols[i % r.cols.length]);
   }
 }
 
