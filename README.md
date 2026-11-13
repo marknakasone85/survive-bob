@@ -2,9 +2,9 @@
 
 ## [▶ Play Survive Bob now](https://marknakasone85.github.io/survive-bob/)
 
-Free in your browser, on computers, phones and tablets. Nothing to install.
+Free in your browser, on computers, phones and tablets. Nothing to install. Plug in a game controller if you like. On a phone, use **Add to Home Screen** and it opens full screen, like an app.
 
-[![Survive Bob in Tokyo: Rusty fires at Bob while he burps. Click to play.](assets/screenshot.png)](https://marknakasone85.github.io/survive-bob/)
+[![Survive Bob in Tokyo: Rusty fires at Bob, who yells "It's rainin' junk!" Click to play.](assets/screenshot.png)](https://marknakasone85.github.io/survive-bob/)
 
 A run-and-gun browser game. Pick a hero and chase Bob, a fat, sloppy villain who makes weird noises, across 20 levels: 10 across America, then the world (Tokyo, Giza, Petra, the Amazon, the Outback, Antarctica, Everest, the Colosseum, Area 51), ending in Washington, D.C. There's also an endless Waves mode.
 
@@ -20,22 +20,27 @@ Then open http://localhost:8765.
 
 ## Controls
 
-| Action | Keyboard | Mouse / touch |
-|---|---|---|
-| Move | ← → or A D | on-screen ◀ ▶ |
-| Jump (hold for higher) | Space, W or ↑ | JUMP |
-| Drop through a platform | S or ↓ | ▼ |
-| Aim | | mouse |
-| Shoot | J | click / FIRE |
-| Grenade | K | right-click / 💣 |
-| Switch gun | Q or 1–9 | GUN |
-| Pause and pick any level | P or Esc | II |
-| Mute / music on-off | M / N | |
+| Action | Keyboard | Mouse / touch | Game controller |
+|---|---|---|---|
+| Move | ← → or A D | on-screen ◀ ▶ | left stick or d-pad |
+| Jump (hold for higher) | Space, W or ↑ | JUMP | A |
+| Drop through a platform | S or ↓ | ▼ | down |
+| Aim | | mouse | right stick |
+| Shoot | J | click / FIRE | X or right trigger |
+| Grenade | K | right-click / 💣 | B or left trigger |
+| Switch gun | Q or 1–9 | GUN | Y or RB (LB goes back) |
+| Pause and pick any level | P or Esc | II | Start |
+| Mute / music on-off | M / N | | |
+| Full screen | F | corner button on the menus | |
+
+Shooting auto-aims at the closest enemy in front of you unless you aim yourself. A controller works in the menus too (A picks, B goes back), and the help on screen switches to controller buttons. Button names are Xbox-style; on PlayStation, A is ✕, B is ◯, X is ▢ and Y is △.
 
 ## Code map
 
-- `index.html`: the page, the canvas and the touch buttons
-- `js/game.js`: game states, menus, the level picker, the HUD and the main loop
+- `index.html`: the page, the canvas, the touch buttons and the full-screen button, plus the link-preview tags
+- `style.css`: the page layout and the fonts
+- `manifest.webmanifest`, `assets/icons/`: name and icons for Add to Home Screen
+- `js/game.js`: game states, menus, the level picker, the HUD, controllers, full screen and the main loop
 - `js/levels*.js`, `js/world1.js`, `js/world2.js`, `js/dc.js`: levels, backgrounds and the enemies for each world
 - `js/bob.js`: Bob the boss and his death scene
 - `js/enemies*.js`, `js/player.js`, `js/heroes.js`, `js/waves.js`: enemies, heroes, guns and Waves mode

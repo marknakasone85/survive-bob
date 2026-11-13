@@ -3,6 +3,20 @@
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+// Sharp on every screen: the game is laid out on a 960 x 540 grid, but the canvas gets as many real pixels as
+// the screen shows it at (up to 2x), so text and art stay crisp on phones, Retina screens and big monitors.
+G.pxX = G.pxY = 1;
+function fitCanvas() {
+  const r = canvas.getBoundingClientRect();
+  if (!r.width) return;
+  const s = Math.min(2, Math.max(1, r.width * (window.devicePixelRatio || 1) / W));
+  const w = Math.round(W * s), h = Math.round(H * s);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  G.pxX = w / W; G.pxY = h / H;
+}
+fitCanvas();
+addEventListener('resize', fitCanvas);
+if (window.ResizeObserver) new ResizeObserver(fitCanvas).observe(canvas);
 // Load the game fonts right away: text drawn only on a canvas doesn't always make the browser fetch them.
 if (document.fonts) for (const f of ["16px 'Bungee'", "500 16px 'Rubik'", "800 16px 'Rubik'"]) document.fonts.load(f).catch(() => {});
 
@@ -12,7 +26,8 @@ function down(...c) { return c.some(k => Input.keys[k]); }
 function hit(...c) { return c.some(k => Input.pressed[k]); }
 const NO_SCROLL = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 addEventListener('keydown', e => {
-  G.touchMode = false; // a real keyboard: show keyboard controls
+  G.touchMode = G.padMode = false; // a real keyboard: show keyboard controls
+  if (e.code === 'KeyF' && !e.repeat && !e.metaKey && !e.ctrlKey) toggleFullscreen();
   if (!Input.keys[e.code]) Input.pressed[e.code] = true;
   Input.keys[e.code] = true;
   if (NO_SCROLL.includes(e.code)) e.preventDefault();
@@ -31,7 +46,7 @@ const fromTouch = () => performance.now() - lastTouch < 800;
 canvas.addEventListener('mousemove', e => { if (fromTouch()) return; toCanvas(e); Input.mouse.lastMove = G.t; });
 canvas.addEventListener('mousedown', e => {
   if (fromTouch()) return;
-  toCanvas(e); Input.mouse.lastMove = G.t; SFX.unlock();
+  toCanvas(e); Input.mouse.lastMove = G.t; SFX.unlock(); G.padMode = false;
   if (e.button === 0) { Input.mouse.down = true; Input.pressed.Mouse0 = true; }
   if (e.button === 2) { Input.pressed.Mouse2 = true; Input.keys.Mouse2 = true; }
 });
@@ -47,7 +62,7 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 G.touchMode = matchMedia('(pointer: coarse)').matches;
 canvas.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'touch') return; // the mouse is handled above
-  e.preventDefault(); lastTouch = performance.now(); G.touchMode = true; SFX.unlock();
+  e.preventDefault(); lastTouch = performance.now(); G.touchMode = true; G.padMode = false; SFX.unlock();
   toCanvas(e); Input.mouse.id = e.pointerId; Input.mouse.lastMove = G.t;
   Input.mouse.down = true; Input.pressed.Mouse0 = true;
   try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
@@ -93,8 +108,88 @@ function updateTouchUI() {
   }
   if (show && G.player) {
     const s = WEAPONS[G.player.weapon].short;
-    if (gunBtn.dataset.w !== s) { gunBtn.dataset.w = s; gunBtn.innerHTML = `GUN<small>${s}</small>`; }
+    if (gunBtn.dataset.w !== s) {
+      gunBtn.dataset.w = s; gunBtn.textContent = 'GUN';
+      const small = document.createElement('small'); small.textContent = s; gunBtn.append(small);
+    }
   }
+}
+
+// ---- Game controllers (Xbox, PlayStation, Switch and others) ----
+// Controller buttons press the same "keys" the keyboard does, so the rest of the game doesn't need to know.
+G.padMode = false;           // true after the last thing you touched was a controller: show controller help
+const padDown = {};          // control -> the key codes it is holding down (fixed when pressed)
+let padAiming = false;
+function padControl(name, isDown, codes) {
+  const held = padDown[name];
+  if (isDown && !held) {
+    padDown[name] = codes;
+    for (const c of codes) { if (!Input.keys[c]) Input.pressed[c] = true; Input.keys[c] = true; }
+    G.padMode = true; G.touchMode = false; SFX.unlock();
+  } else if (!isDown && held) {
+    delete padDown[name];
+    for (const c of held) Input.keys[c] = false;
+  }
+}
+function pollPads() {
+  let pads = [];
+  try { pads = navigator.getGamepads ? [...navigator.getGamepads()] : []; } catch (e) { /* not allowed here */ }
+  const gp = pads.find(p => p && p.connected && p.mapping === 'standard') || pads.find(p => p && p.connected);
+  if (!gp) { for (const n in padDown) padControl(n, false); return; }
+  const b = i => !!gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5);
+  const ax = i => gp.axes[i] || 0;
+  const play = G.state === 'play';
+  padControl('left', b(14) || ax(0) < -0.5, ['ArrowLeft']);
+  padControl('right', b(15) || ax(0) > 0.5, ['ArrowRight']);
+  padControl('down', b(13) || ax(1) > 0.6, ['ArrowDown']);
+  padControl('up', !play && (b(12) || ax(1) < -0.6), ['ArrowUp']); // menus only: in a level, A jumps
+  padControl('a', b(0), ['Space', 'Enter']);
+  padControl('fire', b(2) || b(7), ['KeyJ']);                       // X or right trigger
+  padControl('b', b(1), [play ? 'KeyK' : 'Escape']);                // grenade in a level, back in menus
+  padControl('lt', b(6), ['KeyK']);
+  padControl('y', b(3), [play ? 'KeyQ' : 'KeyC']);                  // next gun; controls on the pause screen
+  padControl('rb', b(5), ['KeyQ']);
+  if (b(4) && !padDown.lb) Input.wheel = -1;                         // LB: previous gun
+  padControl('lb', b(4), []);
+  padControl('start', b(9), [play || G.state === 'paused' ? 'KeyP' : 'Enter']);
+  padControl('back', b(8), ['Escape']);
+  // The right stick aims like the mouse; let go and it's back to auto-aim.
+  const rx = ax(2), ry = ax(3), mag = Math.hypot(rx, ry), p = G.player;
+  if (play && p && mag > 0.4) {
+    Input.mouse.x = p.x + p.w / 2 - G.camX + rx / mag * 220;
+    Input.mouse.y = p.y + 25 + ry / mag * 220;
+    Input.mouse.lastMove = G.t; padAiming = true; G.padMode = true; G.touchMode = false;
+  } else if (padAiming) { padAiming = false; Input.mouse.lastMove = -99999; }
+}
+
+// ---- Full screen ----
+// F, or the corner button in the menus. (iPhones can't do this for web pages: add the game to the home screen instead.)
+const root = document.documentElement;
+const canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function toggleFullscreen() {
+  if (!canFull) return;
+  try {
+    if (isFull()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    const req = root.requestFullscreen || root.webkitRequestFullscreen;
+    const done = req.call(root, { navigationUI: 'hide' });
+    const lock = () => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* not supported */ } };
+    if (done && done.then) done.then(lock, () => {}); else lock();
+  } catch (e) { /* the browser said no */ }
+}
+const fullBtn = document.getElementById('fullBtn');
+if (fullBtn) {
+  // Let go of focus, or the next ENTER / SPACE meant for the game would press this button again.
+  fullBtn.addEventListener('click', () => { toggleFullscreen(); fullBtn.blur(); });
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) {
+    document.addEventListener(ev, () => fullBtn.classList.toggle('is-full', isFull()));
+  }
+}
+// The button shows on the menus and the pause screen, never over the action.
+function updateFullBtn() {
+  if (!fullBtn) return;
+  const show = canFull && G.state !== 'play' && G.state !== 'intro';
+  if (fullBtn.hidden === show) fullBtn.hidden = !show;
 }
 document.addEventListener('contextmenu', e => { if (G.touchMode) e.preventDefault(); });
 canvas.addEventListener('wheel', e => { Input.wheel += Math.sign(e.deltaY); e.preventDefault(); }, { passive: false });
@@ -157,6 +252,7 @@ function retryLevel() {
 // ---- Update --------------------------------------------------------------
 function update() {
   G.t++; G.stateT++;
+  pollPads();
   const go = hit('Enter', 'Space', 'Mouse0');
   switch (G.state) {
     case 'title': {
@@ -195,6 +291,7 @@ function update() {
   if (hit('KeyN')) floatText(G.camX + W / 2, 140, Music.toggle() ? 'MUSIC ON' : 'MUSIC OFF', '#fff', 18);
   updateMusic();
   updateTouchUI();
+  updateFullBtn();
   Input.pressed = {}; Input.wheel = 0;
 }
 
@@ -316,7 +413,7 @@ function updateFx() {
 
 // ---- Render --------------------------------------------------------------
 function render() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(G.pxX, 0, 0, G.pxY, 0, 0);
   if (G.state === 'title') { drawTitle(); return; }
   if (G.state === 'select') { drawSelect(); return; }
   if (G.state === 'levels') { drawLevels(); return; }
@@ -382,7 +479,8 @@ const CONTROLS = [
   [{ keys: [['1-9', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'], ['Q', 'KeyQ']], what: 'SWITCH GUN' },
    { keys: [['P', 'KeyP', 'Escape']], what: 'PAUSE' },
    { keys: [['M', 'KeyM']], what: 'MUTE' },
-   { keys: [['N', 'KeyN']], what: 'MUSIC ON/OFF' }],
+   { keys: [['N', 'KeyN']], what: 'MUSIC ON/OFF' },
+   ...(canFull ? [{ keys: [['F', 'KeyF']], what: 'FULL SCREEN' }] : [])],
 ];
 const KEY_FONT = 10, WHAT_FONT = 11;
 function keyLit(codes) {
@@ -415,23 +513,29 @@ function drawControlsBar() {
   drawControlRow(CONTROLS[0], H - 33);
   drawControlRow(CONTROLS[1], H - 12);
 }
-// Touch-screen version of the controls help.
+// Touch-screen and controller versions of the controls help.
 const TOUCH_HELP = [['◀ ▶', 'MOVE'], ['▼', 'DROP DOWN'], ['JUMP', 'JUMP'], ['FIRE', 'SHOOT (AUTO-AIMS)'],
   ['TAP THE GAME', 'SHOOT WHERE YOU TAP'], ['💣', 'GRENADE'], ['GUN', 'SWITCH GUN'], ['II', 'PAUSE']];
-function drawTouchHelp() {
+const PAD_HELP = [['STICK', 'MOVE'], ['A', 'JUMP'], ['X / RT', 'SHOOT (AUTO-AIMS)'], ['RIGHT STICK', 'AIM'],
+  ['DOWN', 'DROP DOWN'], ['B / LT', 'GRENADE'], ['Y / RB', 'SWITCH GUN'], ['START', 'PAUSE']];
+const simpleHelp = () => (G.padMode ? PAD_HELP : TOUCH_HELP);
+function drawSimpleHelp(list) {
   rect(ctx, 0, H - 48, W, 48, 'rgba(0,0,0,0.65)');
-  const items = TOUCH_HELP.map(([k, what]) => ({ keys: [[k]], what }));
+  const items = list.map(([k, what]) => ({ keys: [[k]], what }));
   drawControlRow(items.slice(0, 4), H - 33);
   drawControlRow(items.slice(4), H - 12);
 }
-function drawTouchList(top) {
-  TOUCH_HELP.forEach(([k, what], i) => {
+function drawSimpleList(list, top) {
+  list.forEach(([k, what], i) => {
     const y = top + i * 34;
     drawKeycap(k, [], W / 2 - 14 - keycapW(k), y);
     text(ctx, what, W / 2 + 14, y, { size: 16, align: 'left', font: FONT2, weight: 800 });
   });
 }
-const tapOr = (tapText, keyText) => (G.touchMode ? tapText : keyText);
+// Keyboard hints, reworded for a controller when that's what you're holding.
+const keyHint = s => (!G.padMode ? s : s.replace(/\bENTER\b/g, 'A').replace(/\bESC\b/g, 'B')
+  .replace(/\bP resume/, 'START resume').replace(/\bC controls/, 'Y controls').replace(/\bPRESS C\b/, 'PRESS B'));
+const tapOr = (tapText, keyText) => (G.touchMode ? tapText : keyHint(keyText));
 
 // Big version for the pause screen: one control per line.
 function drawControlsList(top) {
@@ -497,7 +601,7 @@ function drawHUD() {
     rect(ctx, bx, by, bw, 14, '#3a0d0d');
     rect(ctx, bx, by, bw * b.hp / b.maxHp, 14, b.mad ? '#ff6b00' : '#e03131');
   }
-  if (!G.touchMode) drawControlsBar(); // on touch screens the buttons explain themselves
+  if (G.padMode) drawSimpleHelp(PAD_HELP); else if (!G.touchMode) drawControlsBar(); // touch buttons explain themselves
   if (G.banner && G.state !== 'paused') {
     ctx.globalAlpha = Math.min(1, G.banner.t / 20);
     const s = 1 + Math.max(0, (G.banner.t - 100) / 40);
@@ -540,7 +644,7 @@ function drawOverlay() {
         text(ctx, `You survived ${Math.max(0, G.wave - 1)} waves · best ${G.bestWave} · score ${G.score}`, W / 2, 262, { size: 22, font: FONT2, weight: 800 });
       } else text(ctx, '...for now. *BLORP*', W / 2, 262, { size: 22, font: FONT2, weight: 800 });
       if (blink) text(ctx, tapOr('TAP: ', 'ENTER: ') + (G.checkpoint ? 'TRY BOB AGAIN' : 'TRY AGAIN'), W / 2, 340, { size: 24 });
-      if (!G.touchMode) text(ctx, 'ESC: title screen', W / 2, 380, { size: 16, font: FONT2, weight: 800, color: '#bbb' });
+      if (!G.touchMode) text(ctx, keyHint('ESC: title screen'), W / 2, 380, { size: 16, font: FONT2, weight: 800, color: '#bbb' });
       break;
     case 'win':
       dim(0.55);
@@ -680,13 +784,13 @@ function drawPaused() {
   text(ctx, 'PAUSED', W / 2, 38, { size: 34, color: '#ffd43b', stroke: '#000', sw: 8 });
   if (G.pauseView === 'controls') {
     text(ctx, 'CONTROLS', W / 2, 76, { size: 16, color: '#bbb' });
-    if (G.touchMode) drawTouchList(112); else drawControlsList(112);
+    if (G.touchMode || G.padMode) drawSimpleList(simpleHelp(), 112); else drawControlsList(112);
     if (Math.floor(G.t / 30) % 2 === 0) text(ctx, tapOr('TAP TO GO BACK', 'PRESS C TO GO BACK'), W / 2, 466, { size: 18 });
     return;
   }
   text(ctx, G.mode === 'waves' ? 'PICK A STORY LEVEL TO PLAY, OR RESUME YOUR WAVES' : 'PICK ANY LEVEL TO PLAY', W / 2, 72, { size: 13, color: '#bbb' });
   drawLevelGrid(G.pauseSel, i => (onCurrentLevel(i) ? 'YOU ARE HERE' : ''),
-    i => (G.touchMode ? (onCurrentLevel(i) ? 'TAP AGAIN: RESTART' : 'TAP AGAIN: PLAY') : (i === G.levelIndex ? 'ENTER: KEEP GOING' : 'ENTER: PLAY')));
+    i => (G.touchMode ? (onCurrentLevel(i) ? 'TAP AGAIN: RESTART' : 'TAP AGAIN: PLAY') : keyHint(i === G.levelIndex ? 'ENTER: KEEP GOING' : 'ENTER: PLAY')));
   const by = pauseBtnY();
   drawButtons(PAUSE_BTNS.map((b, i) => ({ ...b, main: i === 0 })), by);
   const hint = tapOr('Tap a level, then tap it again to play it', '←↑↓→ pick a level · ENTER play it · P resume · C controls');
@@ -735,7 +839,7 @@ function drawTitle() {
   text(ctx, G.menuMode === 1 ? `Endless waves · your best: wave ${G.bestWave}` : `${LEVELS.length} levels: America, then the world`, 230, 336,
     { size: 15, font: FONT2, weight: 800, stroke: '#000', sw: 4 });
   text(ctx, tapOr('Tap a mode to start', '←/→ pick a mode · ENTER to start'), 230, 360, { size: 13, font: FONT2, weight: 800, color: '#ddd', stroke: '#000', sw: 3 });
-  if (G.touchMode) drawTouchHelp(); else drawControlsBar();
+  if (G.touchMode || G.padMode) drawSimpleHelp(simpleHelp()); else drawControlsBar();
 }
 
 function drawSelect() {
