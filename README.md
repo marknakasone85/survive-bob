@@ -35,7 +35,7 @@ Then open http://localhost:8765.
 
 Shooting auto-aims at the closest enemy in front of you unless you aim yourself. A controller works in the menus too (A picks, B goes back), and the help on screen switches to controller buttons. Button names are Xbox-style; on PlayStation, A is ✕, B is ◯, X is ▢ and Y is △.
 
-Crates, barrels, cars and rocks are cover. They stop shots, so enemies can hide behind them, but every hit chips them until they break into rubble. After that, shots go straight through and enemies can walk past. Grenades and rockets wreck cover fast, and the .308 battle rifle punches right through it.
+Crates, barrels, cars and rocks are cover, and it works both ways. It stops your shots, so enemies can hide behind it, and it stops the junk they throw, so you can too. Every hit chips it until it breaks into rubble. After that, shots go straight through and enemies can walk past. Grenades and rockets wreck cover fast, and the .308 battle rifle punches right through it.
 
 ## Code map
 

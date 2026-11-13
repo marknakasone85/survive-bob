@@ -199,9 +199,10 @@ function drawSolid(ctx, s) {
 }
 
 // ---- Cover: the crates, barrels, cars and rocks sitting on the ground ----
-// Cover stops your shots, but every hit chips it. First come bullet holes. Then the top gets blown off a chunk
-// at a time, so less and less of an enemy is hidden. At zero it bursts into rubble: shots fly straight through
-// and enemies can walk past. Explosions wreck cover fast, and the .308 punches through it.
+// Cover stops shots both ways: yours (player.js) and the junk enemies throw (enemies.js). Every hit chips it.
+// First come bullet holes. Then the top gets blown off a chunk at a time, so less and less is hidden behind it.
+// At zero it bursts into rubble: shots fly straight through and enemies can walk past. Explosions wreck cover
+// fast, and the .308 punches through it.
 const COVER_HP = {
   jar: 18, trashbags: 18, hay: 21, cereal: 24, boxes: 24, cactus: 24,
   crate: 30, tk_crate: 30, hi_crate: 30, tk_cooler: 32, a51_crate: 34, stump: 34, am_stump: 34,
@@ -233,13 +234,13 @@ function makeCover(x, w, h, style) {
   return { x, y: GROUND_Y - h, w, h, oneWay: false, style, cover: true, hp, maxHp: hp, h0: h, stage: 0, holes: [], hitAt: -99 };
 }
 
-// Damage cover s. kind is 'shot' (leaves a bullet hole where it hit), 'flame' or 'blast'.
+// Damage cover s. kind is 'shot' (leaves a bullet hole where it hit), 'flame', 'blast' or 'thrown' (by an enemy).
 function hitCover(s, dmg, hx, hy, kind = 'shot') {
   if (s.hp <= 0) return;
   if (kind === 'flame') dmg *= FLAMMABLE.has(s.style) ? 1.5 : 0.5;
   s.hp -= dmg; s.hitAt = G.t;
   if (kind === 'shot' && s.holes.length < 16) s.holes.push([hx - s.x, hy - (GROUND_Y - s.h0), rand(2, 3.4)]);
-  if (!G.coverHint) { // the first time, tell the player cover can be shot to bits
+  if (!G.coverHint && kind !== 'thrown') { // the first time you hit cover, tell you it can be shot to bits
     G.coverHint = true; floatText(s.x + s.w / 2, s.y - 16, 'SHOOT IT TO BITS!', '#ffd43b', 14, 90);
   }
   if (s.hp <= 0) { breakCover(s); return; }

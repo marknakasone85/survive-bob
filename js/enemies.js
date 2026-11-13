@@ -170,9 +170,13 @@ function splat(b) {
   if (b.kind === 'chicken') SFX.squeak();
 }
 
+// Gas and ghostly stuff drifts over cover; everything else thrown at you is stopped by it.
+const PASSES_COVER = new Set(['stink', 'burp', 'eg_wrap', 'disco']);
+
 function updateEnemyBullets() {
   const p = G.player, L = G.level;
   for (const b of G.ebullets) {
+    if (b.ox === undefined) { b.ox = b.x; b.oy = b.y; b.lob = b.vy < -1; } // where it was thrown from, and if upward
     b.life--;
     if (b.home) {
       const dx = p.x + p.w / 2 - b.x, dy = p.y + p.h / 2 - b.y, d = Math.hypot(dx, dy) || 1;
@@ -194,7 +198,19 @@ function updateEnemyBullets() {
     } else if (!b.linger && b.kind !== 'wave' && b.y + b.r > GROUND_Y) {
       b.life = 0; splat(b);
     }
-    if (!p.dead && circleHitsRect(b.x, b.y, b.r * 0.8, p)) {
+    // Cover protects you too: thrown junk smacks into it and chips it (see props.js). Rolling balls hit hard.
+    // An enemy standing right beside a crate lobs things over it, so its own cover doesn't eat those.
+    let blocked = false;
+    if (b.life > 0 && !PASSES_COVER.has(b.kind)) {
+      for (const s of G.solids) {
+        if (!s.cover || !circleHitsRect(b.x, b.y, b.r * 0.6, s)) continue;
+        if (b.lob && Math.abs(b.ox - (s.x + s.w / 2)) < s.w / 2 + 36 && b.oy > s.y - 60) continue;
+        hitCover(s, b.roll ? 4 * (b.dmg + 1) : 3 * b.dmg, b.x, b.y, 'thrown');
+        SFX.thunk(); b.life = 0; splat(b); blocked = true;
+        break;
+      }
+    }
+    if (!blocked && !p.dead && circleHitsRect(b.x, b.y, b.r * 0.8, p)) {
       hurtPlayer(b.dmg, b.x);
       if (b.onHit) b.onHit(b); // e.g. a camera flash blinds you for a moment
       if (b.kind !== 'wave' && b.kind !== 'disco' && !b.roll && !b.linger) { b.life = 0; splat(b); }
