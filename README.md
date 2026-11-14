@@ -10,6 +10,29 @@ A run-and-gun browser game. Pick a hero and chase Bob, a fat, sloppy villain who
 
 Plain HTML5 canvas and JavaScript. No build step, no libraries.
 
+## Screenshots
+
+<p>
+  <img src="assets/screens/title.webp" width="49%" alt="Title screen: the Survive Bob logo next to Bob's WANTED poster, wanted for crimes against hygiene">
+  <img src="assets/screens/heroes.webp" width="49%" alt="Pick your hero: ten heroes, including Granny Mae, a raccoon, a goose, a hog, a possum and an armadillo">
+</p>
+
+*The title screen, and ten heroes to pick from: from Rusty and Granny Mae to a raccoon, a goose, a hog and an armadillo.*
+
+<p>
+  <img src="assets/screens/cover.webp" width="49%" alt="Back Alley: Rusty's machine gun chews up a dumpster while a goon and a blob hide behind it">
+  <img src="assets/screens/giza.webp" width="49%" alt="Pyramids of Giza: Bob roars HRAAANGH! as Dakota fires at him">
+</p>
+
+*Shooting a dumpster to bits to get at the goons hiding behind it. Bob at the Pyramids of Giza.*
+
+<p>
+  <img src="assets/screens/waves.webp" width="49%" alt="Waves mode at the county fair: Bandit the raccoon surrounded by enemies from every level">
+  <img src="assets/screens/washington.webp" width="49%" alt="Washington, D.C.: Bob yells SPLOOORT! in front of the Capitol as Granny Mae fires at him">
+</p>
+
+*Waves mode sends enemies from every level at you. The final showdown with Bob in Washington, D.C.*
+
 ## Play it locally
 
 ```bash
@@ -42,6 +65,7 @@ Crates, barrels, cars and rocks are cover, and it works both ways. It stops your
 - `index.html`: the page, the canvas, the touch buttons and the full-screen button, plus the link-preview tags
 - `style.css`: the page layout and the fonts
 - `manifest.webmanifest`, `assets/icons/`: name and icons for Add to Home Screen
+- `assets/screenshot.png`, `assets/screens/`: the pictures in this README (the game itself doesn't load them)
 - `js/game.js`: game states, menus, the level picker, the HUD, controllers, full screen and the main loop
 - `js/levels*.js`, `js/world1.js`, `js/world2.js`, `js/dc.js`: levels, backgrounds and the enemies for each world
 - `js/props.js`: scenery, pickups, and cover that can be shot to bits
