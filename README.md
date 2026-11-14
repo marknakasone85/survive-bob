@@ -17,7 +17,7 @@ Plain HTML5 canvas and JavaScript. No build step, no libraries.
   <img src="assets/screens/heroes.webp" width="49%" alt="Pick your hero: ten heroes, including Granny Mae, a raccoon, a goose, a hog, a possum and an armadillo">
 </p>
 
-*The title screen, and ten heroes to pick from: from Rusty and Granny Mae to a raccoon, a goose, a hog and an armadillo.*
+*The title screen, and the ten heroes you can play, from Rusty and Granny Mae to a raccoon, a goose, a hog and an armadillo.*
 
 <p>
   <img src="assets/screens/cover.webp" width="49%" alt="Back Alley: Rusty's machine gun chews up a dumpster while a goon and a blob hide behind it">
